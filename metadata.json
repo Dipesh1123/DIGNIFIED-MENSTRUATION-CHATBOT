@@ -1,0 +1,7 @@
+{
+  "name": "Dignified Menstruation Assistant",
+  "description": "A conversational AI voice assistant for the Global South Coalition for Dignified Menstruation to educate and dispel myths about menstruation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
