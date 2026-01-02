@@ -9,7 +9,7 @@ const DignityVoiceAgent: React.FC = () => {
   const [isActive, setIsActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModelSpeaking, setIsModelSpeaking] = useState(false);
-  const [statusText, setStatusText] = useState("Ready");
+  const [statusText, setStatusText] = useState("Tap to start");
 
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
@@ -53,24 +53,21 @@ const DignityVoiceAgent: React.FC = () => {
       outputAudioContextRef.current = null;
     }
     
-    setTimeout(() => setStatusText("Ready"), 1500);
+    setTimeout(() => setStatusText("Tap to start"), 1500);
   };
 
   const startSession = async () => {
-    // Guideline: Always use process.env.API_KEY directly and assume it is valid.
     if (!process.env.API_KEY) return setError("API Key not found.");
     setError(null);
     setIsActive(true);
     setStatusText("Connecting...");
 
     try {
-      // Guideline: Initialize GoogleGenAI right before making an API call.
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
 
-      // Important for browser autoplay policies
       if (inputAudioContextRef.current.state === 'suspended') await inputAudioContextRef.current.resume();
       if (outputAudioContextRef.current.state === 'suspended') await outputAudioContextRef.current.resume();
 
@@ -86,7 +83,7 @@ const DignityVoiceAgent: React.FC = () => {
         },
         callbacks: {
           onopen: () => {
-            setStatusText("Listening");
+            setStatusText("I'm listening");
             if (!inputAudioContextRef.current) return;
             const source = inputAudioContextRef.current.createMediaStreamSource(stream);
             sourceNodeRef.current = source;
@@ -94,7 +91,6 @@ const DignityVoiceAgent: React.FC = () => {
             scriptProcessorRef.current = scriptProcessor;
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
-              // Guideline: Use the session promise to send realtime input to avoid race conditions.
               sessionPromiseRef.current?.then((session) => {
                    sessionRef.current = session;
                    session.sendRealtimeInput({ media: createBlob(inputData) });
@@ -112,7 +108,6 @@ const DignityVoiceAgent: React.FC = () => {
               setIsModelSpeaking(true);
               setStatusText("Speaking");
               try {
-                // Guideline: Implement custom PCM decoding and gapless scheduling using nextStartTime.
                 nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
                 const audioBuffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
                 const source = outputCtx.createBufferSource();
@@ -141,16 +136,16 @@ const DignityVoiceAgent: React.FC = () => {
           onclose: stopSession,
           onerror: (e) => { 
             console.error("Live API Error:", e);
-            setError("Connection error."); 
+            setError("Connection lost."); 
             stopSession(); 
           }
         }
       });
     } catch (err) {
       console.error(err);
-      setError("Microphone access failed.");
+      setError("Microphone access denied.");
       setIsActive(false);
-      setStatusText("Error");
+      setStatusText("Tap to start");
     }
   };
 
@@ -159,64 +154,56 @@ const DignityVoiceAgent: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-full flex flex-col items-center justify-between p-8 bg-white">
-      <div className="w-full flex justify-center pt-8">
-        <div className={`px-4 py-2 rounded-full border flex items-center gap-2 transition-all duration-300 ${isActive ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
-          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-rose-500 animate-pulse' : 'bg-slate-400'}`}></div>
-          <span className={`text-xs font-semibold tracking-wide uppercase ${isActive ? 'text-rose-700' : 'text-slate-500'}`}>{statusText}</span>
-        </div>
-      </div>
-
-      <div className="relative flex-1 w-full flex items-center justify-center">
-        <div className={`relative transition-all duration-700 ease-in-out ${isActive ? 'w-64 h-64 md:w-80 md:h-80' : 'w-48 h-48'}`}>
-          <div className={`absolute inset-0 bg-rose-200 blur-3xl rounded-full transition-opacity duration-1000 ${isActive ? 'opacity-60' : 'opacity-0'}`}></div>
-          <div className={`w-full h-full bg-gradient-to-br from-rose-500 to-rose-700 shadow-xl flex items-center justify-center text-white transition-all duration-500 overflow-hidden relative z-10
-            ${isActive ? 'animate-morph' : 'rounded-full scale-90'}
-            ${isModelSpeaking ? 'animate-morph-fast scale-110' : ''}
-          `}>
-             {isActive ? (
-               <div className="scale-150 opacity-80 mix-blend-overlay">
-                  <Visualizer isActive={isActive} isSpeaking={!isModelSpeaking} isModelSpeaking={isModelSpeaking} />
-               </div>
-             ) : (
-               <span className="text-4xl font-bold tracking-tighter opacity-90">DM</span>
-             )}
-          </div>
-        </div>
-      </div>
-
-      <div className="w-full flex flex-col items-center gap-6 pb-8">
-        {error && <p className="text-red-500 text-sm font-medium bg-red-50 px-3 py-1 rounded-md mb-2">{error}</p>}
+    <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-50">
+      
+      {/* Voice Visualization Circle */}
+      <div className="relative flex items-center justify-center mb-12">
+        <div className={`absolute w-48 h-48 rounded-full border-2 border-rose-200 transition-all duration-700 ${isActive ? 'animate-ping opacity-20' : 'opacity-0'}`}></div>
+        <div className={`absolute w-64 h-64 rounded-full border border-rose-100 transition-all duration-1000 ${isActive ? 'animate-ping opacity-10' : 'opacity-0'}`}></div>
         
-        {!isActive ? (
-          <button
-            onClick={startSession}
-            className="group relative px-8 py-4 bg-slate-900 text-white rounded-full font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full max-w-xs overflow-hidden"
-          >
-            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-rose-600 to-rose-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <span className="relative flex items-center justify-center gap-3">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                 <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
-                 <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291a6.751 6.751 0 0 1-6-6.709v-1.5A.75.75 0 0 1 6 10.5Z" />
-              </svg>
-              Start Conversation
-            </span>
-          </button>
-        ) : (
-           <button
-            onClick={stopSession}
-            className="h-16 w-16 bg-white border border-rose-100 rounded-full flex items-center justify-center text-rose-600 hover:bg-rose-50 hover:scale-105 hover:text-rose-700 transition-all shadow-md group"
-          >
-             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 group-active:scale-90 transition-transform">
-                <path fillRule="evenodd" d="M4.5 7.5a3 3 0 0 1 3-3h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9Z" clipRule="evenodd" />
+        <div className={`w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-xl transition-all duration-500 ${
+          isActive ? 'bg-rose-600 scale-110 shadow-rose-200' : 'bg-slate-200 scale-100 shadow-slate-100'
+        }`}>
+          {isActive ? (
+            <Visualizer isActive={isActive} isSpeaking={!isModelSpeaking} isModelSpeaking={isModelSpeaking} />
+          ) : (
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12 text-slate-400">
+               <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
+               <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291a6.751 6.751 0 0 1-6-6.709v-1.5A.75.75 0 0 1 6 10.5Z" />
              </svg>
-          </button>
-        )}
-        
-        <p className="text-slate-400 text-xs font-medium text-center max-w-xs">
-          {isActive ? "Tap the red square to end session" : "Experience our AI voice assistant"}
+          )}
+        </div>
+      </div>
+
+      <div className="text-center space-y-2 mb-12">
+        <h2 className={`text-xl font-bold transition-colors ${isActive ? 'text-rose-700' : 'text-slate-700'}`}>
+          {statusText}
+        </h2>
+        <p className="text-slate-400 text-sm max-w-xs mx-auto">
+          {isActive ? "I am listening to you. Speak freely." : "Start a real-time voice conversation about menstrual dignity."}
         </p>
       </div>
+
+      {error && (
+        <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-xs mb-6 border border-red-100">
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={isActive ? stopSession : startSession}
+        className={`px-10 py-4 rounded-full font-bold shadow-lg transition-all active:scale-95 ${
+          isActive 
+            ? 'bg-slate-800 text-white hover:bg-slate-900' 
+            : 'bg-rose-600 text-white hover:bg-rose-700'
+        }`}
+      >
+        {isActive ? 'Stop Conversation' : 'Start Talking'}
+      </button>
+
+      <p className="mt-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+        Powered by GSCDM
+      </p>
     </div>
   );
 };
