@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { GSCDM_SYSTEM_INSTRUCTION } from '../constants';
@@ -20,7 +19,7 @@ const SUGGESTED_QUESTIONS = [
 
 const ChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Namaste! I am the Dignified Menstruation Assistant. I am here to answer your questions about menstrual dignity, dispel myths, and share information about the Global South Coalition for Dignified Menstruation (GSCDM). How can I support you today?' }
+    { role: 'model', text: 'Namaste! I am the Dignified Menstruation Assistant. I am here to help you understand Menstrual Dignity, debunk myths, and provide information about our global movement. How may I assist you today?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +46,7 @@ const ChatInterface: React.FC = () => {
 
     try {
       const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         config: {
           systemInstruction: GSCDM_SYSTEM_INSTRUCTION,
         },
@@ -94,7 +93,7 @@ const ChatInterface: React.FC = () => {
     <div className="flex flex-col h-full bg-slate-50/50">
       
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth pb-24">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth pb-24 no-scrollbar">
         {messages.map((msg, idx) => (
           <div
             key={idx}

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { GSCDM_SYSTEM_INSTRUCTION } from '../constants';
@@ -12,20 +13,13 @@ const DignityVoiceAgent: React.FC = () => {
   const [isModelSpeaking, setIsModelSpeaking] = useState(false);
   const [statusText, setStatusText] = useState("Ready");
 
-  // Audio Contexts
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
-  
-  // Stream & Processor
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-
-  // Gemini Session
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const sessionRef = useRef<any>(null); 
-
-  // Audio Queue
   const nextStartTimeRef = useRef<number>(0);
   const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
@@ -35,7 +29,7 @@ const DignityVoiceAgent: React.FC = () => {
     setStatusText("Ended");
 
     if (sessionRef.current) {
-      try { await sessionRef.current.close(); } catch (e) { console.warn(e); }
+      try { await sessionRef.current.close(); } catch (e) {}
       sessionRef.current = null;
       sessionPromiseRef.current = null;
     }
@@ -52,8 +46,14 @@ const DignityVoiceAgent: React.FC = () => {
     audioSourcesRef.current.clear();
     nextStartTimeRef.current = 0;
 
-    if (inputAudioContextRef.current) inputAudioContextRef.current.close();
-    if (outputAudioContextRef.current) outputAudioContextRef.current.close();
+    if (inputAudioContextRef.current) {
+      inputAudioContextRef.current.close().catch(() => {});
+      inputAudioContextRef.current = null;
+    }
+    if (outputAudioContextRef.current) {
+      outputAudioContextRef.current.close().catch(() => {});
+      outputAudioContextRef.current = null;
+    }
     
     setTimeout(() => setStatusText("Ready"), 1500);
   };
@@ -69,6 +69,10 @@ const DignityVoiceAgent: React.FC = () => {
 
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+
+      // Important for browser autoplay policies
+      if (inputAudioContextRef.current.state === 'suspended') await inputAudioContextRef.current.resume();
+      if (outputAudioContextRef.current.state === 'suspended') await outputAudioContextRef.current.resume();
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
@@ -122,10 +126,10 @@ const DignityVoiceAgent: React.FC = () => {
                 source.start(nextStartTimeRef.current);
                 nextStartTimeRef.current += audioBuffer.duration;
                 audioSourcesRef.current.add(source);
-              } catch (err) { console.error(err); }
+              } catch (err) { console.error("Audio playback error:", err); }
             }
             if (message.serverContent?.interrupted) {
-              audioSourcesRef.current.forEach(source => source.stop());
+              audioSourcesRef.current.forEach(source => { try { source.stop(); } catch (e) {} });
               audioSourcesRef.current.clear();
               nextStartTimeRef.current = 0;
               setIsModelSpeaking(false);
@@ -133,7 +137,11 @@ const DignityVoiceAgent: React.FC = () => {
             }
           },
           onclose: stopSession,
-          onerror: () => { setError("Connection lost."); stopSession(); }
+          onerror: (e) => { 
+            console.error("Live API Error:", e);
+            setError("Connection error."); 
+            stopSession(); 
+          }
         }
       });
     } catch (err) {
@@ -144,12 +152,12 @@ const DignityVoiceAgent: React.FC = () => {
     }
   };
 
-  useEffect(() => () => { stopSession(); }, []);
+  useEffect(() => {
+    return () => { stopSession(); };
+  }, []);
 
   return (
     <div className="h-full flex flex-col items-center justify-between p-8 bg-white">
-      
-      {/* Top Section: Status */}
       <div className="w-full flex justify-center pt-8">
         <div className={`px-4 py-2 rounded-full border flex items-center gap-2 transition-all duration-300 ${isActive ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
           <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-rose-500 animate-pulse' : 'bg-slate-400'}`}></div>
@@ -157,22 +165,15 @@ const DignityVoiceAgent: React.FC = () => {
         </div>
       </div>
 
-      {/* Center Section: The Living Orb */}
       <div className="relative flex-1 w-full flex items-center justify-center">
-        {/* The Blob Animation */}
         <div className={`relative transition-all duration-700 ease-in-out ${isActive ? 'w-64 h-64 md:w-80 md:h-80' : 'w-48 h-48'}`}>
-          
-          {/* Outer Glow (only active) */}
           <div className={`absolute inset-0 bg-rose-200 blur-3xl rounded-full transition-opacity duration-1000 ${isActive ? 'opacity-60' : 'opacity-0'}`}></div>
-          
-          {/* Liquid Shape */}
           <div className={`w-full h-full bg-gradient-to-br from-rose-500 to-rose-700 shadow-xl flex items-center justify-center text-white transition-all duration-500 overflow-hidden relative z-10
             ${isActive ? 'animate-morph' : 'rounded-full scale-90'}
             ${isModelSpeaking ? 'animate-morph-fast scale-110' : ''}
           `}>
              {isActive ? (
                <div className="scale-150 opacity-80 mix-blend-overlay">
-                  {/* Subtle internal texture for liquid look */}
                   <Visualizer isActive={isActive} isSpeaking={!isModelSpeaking} isModelSpeaking={isModelSpeaking} />
                </div>
              ) : (
@@ -182,9 +183,8 @@ const DignityVoiceAgent: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Section: Controls */}
       <div className="w-full flex flex-col items-center gap-6 pb-8">
-        {error && <p className="text-red-500 text-sm font-medium bg-red-50 px-3 py-1 rounded-md">{error}</p>}
+        {error && <p className="text-red-500 text-sm font-medium bg-red-50 px-3 py-1 rounded-md mb-2">{error}</p>}
         
         {!isActive ? (
           <button
@@ -212,7 +212,7 @@ const DignityVoiceAgent: React.FC = () => {
         )}
         
         <p className="text-slate-400 text-xs font-medium text-center max-w-xs">
-          {isActive ? "Tap to end session" : "Experience our AI voice assistant"}
+          {isActive ? "Tap the red square to end session" : "Experience our AI voice assistant"}
         </p>
       </div>
     </div>
