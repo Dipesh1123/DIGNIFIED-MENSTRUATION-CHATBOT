@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { GSCDM_SYSTEM_INSTRUCTION } from '../constants';
@@ -7,8 +8,6 @@ interface Message {
   role: 'user' | 'model';
   text: string;
 }
-
-const API_KEY = process.env.API_KEY || '';
 
 const SUGGESTED_QUESTIONS = [
   "What is Dignified Menstruation?",
@@ -24,9 +23,6 @@ const ChatInterface: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Initialize AI client
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,6 +41,9 @@ const ChatInterface: React.FC = () => {
     setIsLoading(true);
 
     try {
+      // Guideline: Initialize GoogleGenAI right before the API call and use process.env.API_KEY directly.
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
       const chat = ai.chats.create({
         model: 'gemini-3-flash-preview',
         config: {
@@ -56,13 +55,16 @@ const ChatInterface: React.FC = () => {
         })),
       });
 
+      // Guideline: chat.sendMessageStream only accepts the message parameter.
       const result = await chat.sendMessageStream({ message: userMessage });
       
       let fullResponse = '';
       setMessages(prev => [...prev, { role: 'model', text: '' }]);
 
       for await (const chunk of result) {
-        const text = (chunk as GenerateContentResponse).text;
+        // Guideline: Extract text output from response by accessing the .text property.
+        const responseChunk = chunk as GenerateContentResponse;
+        const text = responseChunk.text;
         if (text) {
           fullResponse += text;
           setMessages(prev => {

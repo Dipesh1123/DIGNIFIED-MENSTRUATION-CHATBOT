@@ -5,8 +5,6 @@ import { GSCDM_SYSTEM_INSTRUCTION } from '../constants';
 import { createBlob, decode, decodeAudioData } from '../utils/audioUtils';
 import Visualizer from './Visualizer';
 
-const API_KEY = process.env.API_KEY || '';
-
 const DignityVoiceAgent: React.FC = () => {
   const [isActive, setIsActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,13 +57,15 @@ const DignityVoiceAgent: React.FC = () => {
   };
 
   const startSession = async () => {
-    if (!API_KEY) return setError("API Key not found.");
+    // Guideline: Always use process.env.API_KEY directly and assume it is valid.
+    if (!process.env.API_KEY) return setError("API Key not found.");
     setError(null);
     setIsActive(true);
     setStatusText("Connecting...");
 
     try {
-      const ai = new GoogleGenAI({ apiKey: API_KEY });
+      // Guideline: Initialize GoogleGenAI right before making an API call.
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -94,6 +94,7 @@ const DignityVoiceAgent: React.FC = () => {
             scriptProcessorRef.current = scriptProcessor;
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
+              // Guideline: Use the session promise to send realtime input to avoid race conditions.
               sessionPromiseRef.current?.then((session) => {
                    sessionRef.current = session;
                    session.sendRealtimeInput({ media: createBlob(inputData) });
@@ -111,6 +112,7 @@ const DignityVoiceAgent: React.FC = () => {
               setIsModelSpeaking(true);
               setStatusText("Speaking");
               try {
+                // Guideline: Implement custom PCM decoding and gapless scheduling using nextStartTime.
                 nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
                 const audioBuffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
                 const source = outputCtx.createBufferSource();
