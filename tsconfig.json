@@ -17,5 +17,12 @@
     "jsx": "react-jsx",
     "types": ["node"]
   },
-  "include": ["index.tsx", "App.tsx", "components/**/*", "utils/**/*", "constants.ts", "vite.config.ts"]
+  "include": [
+    "index.tsx",
+    "App.tsx",
+    "constants.ts",
+    "vite.config.ts",
+    "components/**/*",
+    "utils/**/*"
+  ]
 }
