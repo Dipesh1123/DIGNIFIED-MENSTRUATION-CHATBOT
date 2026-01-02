@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { GSCDM_SYSTEM_INSTRUCTION } from '../constants';
@@ -42,7 +41,7 @@ const ChatInterface: React.FC = () => {
 
     try {
       // Guideline: Initialize GoogleGenAI right before the API call and use process.env.API_KEY directly.
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
       const chat = ai.chats.create({
         model: 'gemini-3-flash-preview',
