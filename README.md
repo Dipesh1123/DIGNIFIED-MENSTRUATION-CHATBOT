@@ -1,4 +1,4 @@
-# Dignified Menstruation Assistant - Technical Report
+# Dignified Menstruation Assistant
 
 **Version:** 1.0.0  
 **Date:** October 26, 2023  
